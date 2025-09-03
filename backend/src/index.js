@@ -4,10 +4,15 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const path = require("path");
 
 const connectDB = require("./config/db");
-const userRoutes = require("./routes/authRoutes");
+const authRoutes = require("./routes/authRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const userRoutes = require("./routes/userRoutes");
+
+
+
 
 dotenv.config();
 connectDB();
@@ -15,42 +20,60 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static("uploads")); // Serve static files from the "uploads" directory
+
+// Serve uploaded images (messages and profiles)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
-app.use("/api/auth", userRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/users", userRoutes);
 
+
+// Create HTTP server and Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
 });
 
-const onlineUsers = new Set();
+// Map to track online users: userId => socketId
+const onlineUsers = new Map();
 
-// Socket.IO
 io.on("connection", (socket) => {
   console.log("⚡ User connected:", socket.id);
 
+  // Register user
   socket.on("registerUser", (userId) => {
-    onlineUsers.add(userId);
-    io.emit("onlineUsers", Array.from(onlineUsers));
+    onlineUsers.set(userId, socket.id);
+    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
   });
 
+  // Send message
   socket.on("sendMessage", (data) => {
     console.log("📩 Message received:", data);
-    io.emit("receiveMessage", data); // broadcast
+
+    // Send to receiver if online
+    const receiverSocketId = onlineUsers.get(data.receiver);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("receiveMessage", data);
+    }
+
+    // Also send to sender
+    io.to(socket.id).emit("receiveMessage", data);
   });
 
+  // Disconnect
   socket.on("disconnect", () => {
-    // Remove user from onlineUsers when disconnected
-    onlineUsers.forEach((id) => {
-      if (socket.id === id) onlineUsers.delete(id);
-    });
-    io.emit("onlineUsers", Array.from(onlineUsers));
+    for (const [userId, sId] of onlineUsers.entries()) {
+      if (sId === socket.id) onlineUsers.delete(userId);
+    }
+    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
     console.log("❌ User disconnected:", socket.id);
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+// Export onlineUsers if needed elsewhere
+module.exports = { onlineUsers };

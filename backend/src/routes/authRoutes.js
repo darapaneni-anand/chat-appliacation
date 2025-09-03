@@ -1,22 +1,20 @@
 const express = require("express");
 const { signup, login, logout } = require("../controllers/authController");
-const User = require("../models/User");
-const onlineUsers = require("../index").onlineUsers; // Export onlineUsers from index.js
+const multer = require("multer");
+const path = require("path");
 
 const router = express.Router();
 
-router.post("/signup", signup);
+// Multer config for profile uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, "../uploads/profiles")),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+});
+const upload = multer({ storage });
+
+// Signup route with profile photo
+router.post("/signup", upload.single("profilePhoto"), signup);
 router.post("/login", login);
 router.post("/logout", logout);
-
-// Get all users (except current)
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find({}, "_id username email");
-    res.json(users); // No isOnline property
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch users" });
-  }
-});
 
 module.exports = router;

@@ -5,11 +5,12 @@ import Sidebar from "../components/Sidebar";
 import { AuthContext } from "../context/AuthContext";
 
 export default function Home() {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext); // Add setUser to update profile
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState({});
 
+  // Track unread messages
   useEffect(() => {
     const handler = (e) => {
       setUnread((prev) => ({
@@ -30,10 +31,10 @@ export default function Home() {
 
   return (
     <div className="h-screen flex bg-gray-100">
-      <Sidebar
-        onSelectChat={(u) => setSelectedChat(u)}
-        unread={unread}
-      />
+      {/* Sidebar */}
+      <Sidebar onSelectChat={(u) => setSelectedChat(u)} unread={unread} />
+
+      {/* Chat area */}
       {selectedChat ? (
         <>
           <ChatContainer
@@ -42,11 +43,19 @@ export default function Home() {
             messages={messages}
             setMessages={setMessages}
           />
-          <RightSidebar chatUser={selectedChat} messages={messages} />
+
+          <RightSidebar
+            chatUser={selectedChat}
+            currentUser={user}
+            messages={messages}
+            setCurrentUser={setUser} // Allows profile photo update to reflect immediately
+          />
         </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-gray-500 text-lg">👋 Welcome {user.username}, select a chat</p>
+          <p className="text-gray-500 text-lg">
+            👋 Welcome {user.username}, select a chat
+          </p>
         </div>
       )}
     </div>
