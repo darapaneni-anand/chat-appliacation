@@ -62,14 +62,27 @@ io.on("connection", (socket) => {
     io.to(socket.id).emit("receiveMessage", data);
   });
 
-  // Disconnect
-  socket.on("disconnect", () => {
-    for (const [userId, sId] of onlineUsers.entries()) {
-      if (sId === socket.id) onlineUsers.delete(userId);
+  // server.js (inside socket.on("disconnect"))
+socket.on("disconnect", async () => {
+  for (const [userId, sId] of onlineUsers.entries()) {
+    if (sId === socket.id) {
+      onlineUsers.delete(userId);
+
+      // ✅ Update lastSeen in DB
+      try {
+        const User = require("./models/User");
+        await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+      } catch (err) {
+        console.error("Error updating lastSeen:", err);
+      }
     }
-    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-    console.log("❌ User disconnected:", socket.id);
-  });
+  }
+
+  io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+  console.log("❌ User disconnected:", socket.id);
+});
+
+
 });
 
 const PORT = process.env.PORT || 5000;
