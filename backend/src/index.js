@@ -21,14 +21,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded images (messages and profiles)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 
+
+app.get("/api/test-cloudinary", async (req, res) => {
+  try {
+    const cloudinary = require("./config/cloudinary");
+    const result = await cloudinary.api.ping();
+    res.json({ cloudinary: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Create HTTP server and Socket.IO
 const server = http.createServer(app);

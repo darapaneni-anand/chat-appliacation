@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { signup } from "../api";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 function Signup() {
   const [form, setForm] = useState({
@@ -34,7 +35,9 @@ function Signup() {
       formData.append("password", form.password);
       if (form.profilePhoto) formData.append("profilePhoto", form.profilePhoto);
 
-      await signup(formData);
+      const res = await axios.post("/api/auth/signup", formData);
+      // Save user info including profilePhoto
+      setUser(res.data.user); // or your context logic
       alert("Signup successful! Please login.");
       navigate("/login");
     } catch (err) {
