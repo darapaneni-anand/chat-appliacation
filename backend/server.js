@@ -1,4 +1,4 @@
-// index.js (or server.js)
+// server.js
 const express = require("express");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
@@ -17,9 +17,10 @@ connectDB();
 
 const app = express();
 
-// CORS for API routes
+// CORS setup: allow local dev and deployed frontend
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 app.use(cors({
-  origin: "http://localhost:5173", // frontend URL
+  origin: FRONTEND_URL,
   credentials: true,
 }));
 app.use(express.json());
@@ -28,7 +29,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
-
 
 // Test Cloudinary
 app.get("/api/test-cloudinary", async (req, res) => {
@@ -41,13 +41,13 @@ app.get("/api/test-cloudinary", async (req, res) => {
   }
 });
 
-// HTTP server
+// HTTP server for Socket.IO
 const server = http.createServer(app);
 
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // frontend URL
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -68,10 +68,7 @@ io.on("connection", (socket) => {
   // Handle messages
   socket.on("sendMessage", (data) => {
     const receiverSocketId = onlineUsers.get(data.receiver);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("receiveMessage", data);
-    }
-    // Also emit to sender
+    if (receiverSocketId) io.to(receiverSocketId).emit("receiveMessage", data);
     io.to(socket.id).emit("receiveMessage", data);
   });
 
@@ -80,8 +77,6 @@ io.on("connection", (socket) => {
     for (const [userId, sId] of onlineUsers.entries()) {
       if (sId === socket.id) {
         onlineUsers.delete(userId);
-
-        // Update lastSeen in DB
         try {
           const User = require("./models/User");
           await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
@@ -95,16 +90,15 @@ io.on("connection", (socket) => {
   });
 });
 
-// Serve React build for production
+// Serve React frontend build for production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/build")));
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
+    res.sendFile(path.join(__dirname, "../frontend/dist", "index.html"));
   });
 }
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
-// Export onlineUsers if needed elsewhere
 module.exports = { onlineUsers };
