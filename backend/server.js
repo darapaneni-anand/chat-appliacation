@@ -18,7 +18,7 @@ connectDB();
 const app = express();
 
 // CORS setup: allow local dev and deployed frontend
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://chat-application-3-p3l8.onrender.com";
 app.use(cors({
   origin: FRONTEND_URL,
   credentials: true,
