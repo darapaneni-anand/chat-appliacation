@@ -1,9 +1,12 @@
 import axios from "axios";
 
+
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
-  withCredentials: true,
+  baseURL: "https://chat-application-2-3ne8.onrender.com/api", // deployed backend
+  withCredentials: true, // include cookies if you use them
 });
+
+export default API;
 
 // Attach JWT token if available
 API.interceptors.request.use((req) => {
