@@ -1,29 +1,18 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState } from "react";
 import API from "../api";
-import { AuthContext } from "../context/AuthContext";
-import { io } from "socket.io-client";
-
-const socket = io("http://localhost:5000"); // 👈 adjust for production
+import socket from "../socket";
+import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar({ onSelectChat, selectedChat }) {
+  const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     if (!user?._id) return;
-
-    // ✅ Tell backend this user is online
     socket.emit("registerUser", user._id);
-
-    // ✅ Listen for online users update
-    socket.on("onlineUsers", (userIds) => {
-      setOnlineUsers(userIds);
-    });
-
-    return () => {
-      socket.off("onlineUsers");
-    };
+    socket.on("onlineUsers", (userIds) => setOnlineUsers(userIds));
+    return () => socket.off("onlineUsers");
   }, [user?._id]);
 
   useEffect(() => {
@@ -38,11 +27,14 @@ export default function Sidebar({ onSelectChat, selectedChat }) {
     fetchUsers();
   }, [user?._id]);
 
-  if (!users.length) return <p className="p-4 text-gray-500">Loading users...</p>;
+  if (!users.length)
+    return <p className="p-4 text-gray-500">Loading users...</p>;
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
-      <div className="p-4 font-bold border-b">Chats</div>
+    <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full shadow-lg">
+      <div className="p-4 font-bold border-b text-xl text-gray-800 bg-gray-50">
+        Chats
+      </div>
       <div className="flex-1 overflow-y-auto">
         {users.map((u) => {
           const isOnline = onlineUsers.includes(u._id);
@@ -50,8 +42,8 @@ export default function Sidebar({ onSelectChat, selectedChat }) {
             <div
               key={u._id}
               onClick={() => onSelectChat(u)}
-              className={`cursor-pointer flex items-center space-x-3 p-3 hover:bg-gray-100 ${
-                selectedChat?._id === u._id ? "bg-gray-200" : ""
+              className={`cursor-pointer flex items-center space-x-4 p-3 transition-all duration-200 rounded-lg mb-1 hover:bg-blue-50 ${
+                selectedChat?._id === u._id ? "bg-blue-100" : ""
               }`}
             >
               <div className="relative">
@@ -64,15 +56,21 @@ export default function Sidebar({ onSelectChat, selectedChat }) {
                       : "/images/profile.png"
                   }
                   alt={u.username}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                 />
                 {isOnline && (
-                  <span className="absolute bottom-0 right-0 block w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse"></span>
                 )}
               </div>
-              <div className="flex flex-col">
-                <span className="font-semibold">{u.username}</span>
-                <span className="text-xs text-gray-500">
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <span className="font-semibold text-gray-800 truncate">
+                  {u.username}
+                </span>
+                <span
+                  className={`text-sm truncate ${
+                    isOnline ? "text-green-500" : "text-gray-400"
+                  }`}
+                >
                   {isOnline ? "Online" : "Offline"}
                 </span>
               </div>

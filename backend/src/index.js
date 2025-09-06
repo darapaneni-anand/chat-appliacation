@@ -1,3 +1,4 @@
+// index.js (or server.js)
 const express = require("express");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
@@ -11,22 +12,24 @@ const authRoutes = require("./routes/authRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const userRoutes = require("./routes/userRoutes");
 
-
-
-
 dotenv.config();
 connectDB();
 
 const app = express();
-app.use(cors());
+
+// CORS for API routes
+app.use(cors({
+  origin: "http://localhost:5173", // frontend URL
+  credentials: true,
+}));
 app.use(express.json());
 
-// Routes
+// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 
-
+// Test Cloudinary
 app.get("/api/test-cloudinary", async (req, res) => {
   try {
     const cloudinary = require("./config/cloudinary");
@@ -37,13 +40,19 @@ app.get("/api/test-cloudinary", async (req, res) => {
   }
 });
 
-// Create HTTP server and Socket.IO
+// HTTP server
 const server = http.createServer(app);
+
+// Socket.IO setup
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: "http://localhost:5173", // frontend URL
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
-// Map to track online users: userId => socketId
+// Map to track online users
 const onlineUsers = new Map();
 
 io.on("connection", (socket) => {
@@ -55,41 +64,34 @@ io.on("connection", (socket) => {
     io.emit("onlineUsers", Array.from(onlineUsers.keys()));
   });
 
-  // Send message
+  // Handle messages
   socket.on("sendMessage", (data) => {
-    console.log("📩 Message received:", data);
-
-    // Send to receiver if online
     const receiverSocketId = onlineUsers.get(data.receiver);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("receiveMessage", data);
     }
-
-    // Also send to sender
+    // Also emit to sender
     io.to(socket.id).emit("receiveMessage", data);
   });
 
-  // server.js (inside socket.on("disconnect"))
-socket.on("disconnect", async () => {
-  for (const [userId, sId] of onlineUsers.entries()) {
-    if (sId === socket.id) {
-      onlineUsers.delete(userId);
+  // Handle disconnect
+  socket.on("disconnect", async () => {
+    for (const [userId, sId] of onlineUsers.entries()) {
+      if (sId === socket.id) {
+        onlineUsers.delete(userId);
 
-      // ✅ Update lastSeen in DB
-      try {
-        const User = require("./models/User");
-        await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
-      } catch (err) {
-        console.error("Error updating lastSeen:", err);
+        // Update lastSeen in DB
+        try {
+          const User = require("./models/User");
+          await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+        } catch (err) {
+          console.error("Error updating lastSeen:", err);
+        }
       }
     }
-  }
-
-  io.emit("onlineUsers", Array.from(onlineUsers.keys()));
-  console.log("❌ User disconnected:", socket.id);
-});
-
-
+    io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+    console.log("❌ User disconnected:", socket.id);
+  });
 });
 
 const PORT = process.env.PORT || 5000;
