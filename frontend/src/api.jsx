@@ -6,7 +6,7 @@ const API = axios.create({
   withCredentials: true, // include cookies if you use them
 });
 
-export default API;
+
 
 // Attach JWT token if available
 API.interceptors.request.use((req) => {
